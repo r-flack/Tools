@@ -1,0 +1,76 @@
+string $importpath = "D:/tourist_art/Content_Source/Gameplay/Enemies/CrimsonDesert/_WORKFILES/_ReaperBoss_Animations/";
+string $exportpath = "D:/tourist_art/Content_Source/Gameplay/Enemies/CrimsonDesert/_WORKFILES/FBX";
+string $refsource = "D:/tourist_art/Content_Source/Gameplay/Enemies/CrimsonDesert/CD_Reaper_Boss/CD_Reaper_Boss_RIG.ma";
+string $nameList[] = `getFileList -folder $exportpath`;
+
+int $a = (size($nameList));
+
+for ($a=56; $a<=64; $a++)
+    {        
+    file -force -o (($importpath) + ($nameList[$a]));
+    print ("\n Opening... " + ($a) + "..." + ($nameList[$a]));
+    string $tempname = `file -q -sn -shn`;
+    string $exportname = `basenameEx($tempname)`;
+
+    string $nspace[] = (`namespaceInfo -lon`);
+    if ($nspace[0] == "CD_Reaper_Boss_RIG")
+        {
+        namespace -mergeNamespaceWithRoot -removeNamespace "CD_Reaper_Boss_RIG";  
+        }
+        
+        CBdeleteConnection  "finger_l_ctrl.Finger_Length01";
+        CBdeleteConnection  "finger_l_ctrl.Finger_Length_02";
+        select -cl;
+
+        float $minTime = `playbackOptions -q -minTime`;
+        
+        float $maxTime = `playbackOptions -q -maxTime`;
+        
+        select -cl  ;
+        
+        currentTime 0 ;
+        
+        select -hi character_root_jnt ;
+             
+        // set first frame as zero and last frame as last key
+        string $time = ("\"" + $minTime + ":" + $maxTime + "\"" );
+        
+        eval ("bakeResults -simulation true -t " + $time + " -sampleBy 1 -shape false");
+    /////////////////////// 
+    
+    ///////////////////////         
+        select -hi "character_root_jnt";        
+
+    ///////////////////////
+
+//    file -f -es -type "FBX" (($exportpath) + ($exportname)) ;
+    file -force -options "v=0;" -typ "FBX export" -pr -es (($exportpath) + "/" + ($nameList[$a]));
+//    FBXExport -f (($exportpath) + ($exportname)) -es;
+
+print ("\n" + ($nameList[$a]) + " ...number..." + ($a) + "...Exported!");
+    }
+
+for ($a=0; $a<=63; $a++)
+
+    {
+        
+    file -force -o (($exportpath) + "/" + ($nameList[$a]));
+    
+    select -hi "character_root_jnt";
+    string $sel[] = (`ls -sl`);
+    for ($each in $sel)
+        {
+        filterCurve    (($each) + ".translateX");
+        filterCurve    (($each) + ".translateY");
+        filterCurve    (($each) + ".translateZ");            
+        filterCurve    (($each) + ".rotateX");
+        filterCurve    (($each) + ".rotateY");
+        filterCurve    (($each) + ".rotateZ");      
+        }
+    string $tempname = `file -q -sn -shn`;
+    
+    string $exportname = `basenameEx($tempname)`;
+        
+     file -force -options "v=0;" -typ "FBX export" -pr -es (($exportpath) + "/" + ($exportname)); 
+     
+     }  

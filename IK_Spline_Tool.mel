@@ -1,0 +1,96 @@
+/*------------------------------------------------------------
+Create controls
+-------------------------------------------------------------*/
+int $curveDeg = (`getAttr "tentacle04_l_CRV.degree"`);
+int $curveSpan = (`getAttr "tentacle04_l_CRV.spans"`);
+int $curveCV = (($curveDeg) + ($curveSpan));
+
+for ($i=0; $i<($curveCV); $i++)
+    {
+    curve -d 1 -p 16.5 0 16.5 
+               -p 50 0 16.5 
+               -p 50 0 -16.5 
+               -p 16.5 0 -16.5
+               -p 16.5 0 -50
+               -p -16.5 0 -50 
+               -p -16.5 0 -16.5
+               -p -50 0 -16.5
+               -p -50 0 16.5
+               -p -16.5 0 16.5
+               -p -16.5 0 50
+               -p 16.5 0 50 
+               -p 16.5 0 16.5 
+               -k 0 -k 1 -k 2 -k 3 -k 4 -k 5 -k 6 -k 7 -k 8 -k 9 -k 10 -k 11 -k 12 -n ("tentacle04_l_ctrl0" + ($i));
+               
+               select -r ("tentacle04_l_ctrl0" +($i)+ ".cv[0:12]") ;               
+               rotate -r -ocp -os -fo 90 0 0 ;
+               
+       group -em -n ("grp_tentacle04_l_ctrl0" + ($i));
+       parent ("tentacle04_l_ctrl0" + ($i)) ("grp_tentacle04_l_ctrl0" + ($i));
+       
+/*------------------------------------------------------------
+move controls into position
+-------------------------------------------------------------*/     
+
+        float $cvpos[] = (`xform -q -ws -t ("tentacle04_l_CRV.cv[" +($i)+ "]")`);
+        
+        xform -ws -t ($cvpos[0]) ($cvpos[1]) ($cvpos[2]) ("grp_tentacle04_l_ctrl0" + ($i));
+    
+/*------------------------------------------------------------
+Connect controls to CVs with matrices
+-------------------------------------------------------------*/
+       
+        shadingNode -asUtility decomposeMatrix -n ("tentacle04_l_decomposeMatrix0" + ($i));
+    
+        connectAttr -force ("tentacle04_l_ctrl0" +($i)+ ".worldMatrix[0]") ("tentacle04_l_decomposeMatrix0" +($i)+ ".inputMatrix");
+        
+        connectAttr -f ("tentacle04_l_decomposeMatrix0" +($i)+ ".outputTranslate") ("tentacle04_l_CRVShape.controlPoints[" +($i)+ "]");
+       
+       }
+       
+//outside of loop
+/*------------------------------------------------------------
+create ArcLen Node
+-------------------------------------------------------------*/
+
+       string $curveInfoNode = `arclen -ch on tentacle04_l_CRV`;
+      //rename arcLen curveInfo to tentacle02_CRV_arclen
+       rename ("curveInfo5") ("tentacle04_l_CRV_curveInfo") ;
+
+        shadingNode -asUtility multiplyDivide -n "tentacle04_left_scale_value";   //<<<------------------------you need to make a new one for the right side
+        connectAttr -f ("tentacle04_l_CRV_curveInfo.arcLength") ("tentacle04_left_scale_value.input1X");
+        
+        float $arclenvalue = (`getAttr tentacle04_l_CRV_curveInfo.arcLength`);
+        setAttr "tentacle04_left_scale_value.input2X" ($arclenvalue);
+        setAttr "tentacle04_left_scale_value.operation" 2;
+
+/*------------------------------------------------------------
+Link ArcLen to MulDiv nodes to joints
+-------------------------------------------------------------*/       
+for ($i=0; $i<($curveCV); $i++)
+    {
+       shadingNode -asUtility multiplyDivide -n ("tentacle04_l_CRV_arclen_to_joint_MulDiv0" +($i));
+    }
+    
+for ($i=0; $i<($curveCV); $i++)
+    {      
+       float $tempVal = (getAttr ("tentacle04_l_jnt0" +($i+1)+ ".translateX"));
+       setAttr ("tentacle04_l_CRV_arclen_to_joint_MulDiv0" +($i)+ ".input1.input1X") ($tempVal);
+}
+for ($i=0; $i<($curveCV); $i++)
+    {         
+       connectAttr -f tentacle04_left_scale_value.outputX ("tentacle04_l_CRV_arclen_to_joint_MulDiv0" + ($i) + ".input2X");
+       connectAttr -f ("tentacle04_l_CRV_arclen_to_joint_MulDiv0" + ($i) + ".outputX") ("tentacle04_l_jnt0" + ($i+1) + ".translateX");                    
+   }
+/*------------------------------------------------------------
+group controls
+-------------------------------------------------------------*/
+
+group -em -n "grp_tentacle04_l_ik";
+matchTransform -pos ("grp_tentacle04_l_ik") ("tentacle04_l_jnt01");
+for ($i=0; $i<($curveCV); $i++)
+    {
+        parent ("grp_tentacle04_l_ctrl0" + ($i)) ("grp_tentacle04_l_ik");
+    }
+//group -em -n "grp_tentacle_ik";
+parent ("tentacle04_l_ik") ("tentacle04_l_CRV") ("grp_tentacle_ik");

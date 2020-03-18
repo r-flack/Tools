@@ -1,0 +1,91 @@
+/*-------------------------------------------------------
+select mocap skeleton from any joint
+---------------------------------------------------------*/
+string $sel[] = (`ls -sl`);
+if (`objExists ($sel[0])`)
+    {
+    print ("\nfinding the root of selection...\n");
+    string $newSel[];
+        do
+            {
+            $newSel = (`listRelatives -p`);
+                if (`objExists ($newSel[0])`)
+                    {
+                    select -r ($newSel[0]);   
+                    }
+            }
+        while (`objExists ($newSel[0])`);
+    }
+select -hi;
+string $jointHierarchy[] = (`ls -sl`);
+print ("\nroot selected is:   " + ($jointHierarchy[0]));
+
+for ($i=0; $i<(size($jointHierarchy)); $i++) 
+    {
+    setAttr (($jointHierarchy[$i]) + ".rotateX") 0;
+    setAttr (($jointHierarchy[$i]) + ".rotateY") 0;    
+    setAttr (($jointHierarchy[$i]) + ".rotateZ") 0;
+    }
+
+setAttr (($jointHierarchy[0]) + ".translateX") 0;
+setAttr (($jointHierarchy[0]) + ".translateY") 0;
+ 
+/*-------------------------------------------------------
+assign mocap data joint hierarchy into string array
+---------------------------------------------------------*/
+select -hi;
+string $jointHierarchy[] = (`ls -sl`);
+
+for ($i=0; $i<(size($jointHierarchy)); $i++) 
+    {
+    print (($i) + "\n" + ($jointHierarchy[$i]) + "\n");
+    }
+
+/*-------------------------------------------------------
+Split string arrays into body components
+---------------------------------------------------------*/
+//torso
+string $torsoArray[];
+appendStringArray($torsoArray, $jointHierarchy, 5);
+
+//left arm
+string $leftArmArray[];
+for ($i=0;$i<=3;$i++)
+{
+stringArrayInsertAtIndex(($i), $leftArmArray, $jointHierarchy[$i+5]);
+}
+
+//left fingers
+string $leftDigits[];
+for ($i=0;$i<=14;$i++)
+{
+stringArrayInsertAtIndex(($i), $leftDigits, $jointHierarchy[$i+9]);
+}
+
+//right arm
+string $rightArmArray[];
+for ($i=0;$i<=3;$i++)
+{
+stringArrayInsertAtIndex(($i), $rightArmArray, $jointHierarchy[$i+24]);
+}
+
+//right fingers
+string $rightDigits[];
+for ($i=0;$i<=14;$i++)
+{
+stringArrayInsertAtIndex(($i), $rightDigits, $jointHierarchy[$i+28]);
+}
+
+//left leg
+string $leftLegArray[];
+for ($i=0;$i<=3;$i++)
+{
+stringArrayInsertAtIndex(($i), $leftLegArray, $jointHierarchy[$i+43]);  
+}
+
+//right leg
+string $rightLegArray[];
+for ($i=0;$i<=3;$i++)
+{
+stringArrayInsertAtIndex(($i), $rightLegArray, $jointHierarchy[$i+47]);
+}

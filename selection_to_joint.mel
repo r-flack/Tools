@@ -1,0 +1,41 @@
+proc selection_to_joint()
+    {
+/*------------------------------------------------------------
+Places joint at centre of vertices selection
+-------------------------------------------------------------*/
+
+    string $sel[] = (`ls -sl`);
+    int $a;
+    string $jointname = ("temp_name_joint");
+    cluster -n "temp_cluster";
+    string $clusterhandle[] = (`listConnections -t transform "temp_cluster"`);
+    
+    select -cl;
+    
+    if (`objExists (($jointname)+("0"))`)
+        {
+        print ("this");
+        $a = ($a +1);
+        $jntname = ("temp_name_joint" + ($a));
+        joint -p 0 0 0 -n ($jntname);
+        matchTransform -pos ($jntname) ($clusterhandle[0]);
+        string $prntjnt = ("temp_name_joint" + ($a-1));
+        parent ($jntname) ($prntjnt);
+        select -cl;        
+        }
+        
+        else
+        
+        {
+        print ("that");
+        joint -p 0 0 0 -n (($jointname)+("0"));
+        matchTransform -pos (($jointname)+("0")) ($clusterhandle[0]);
+        select -cl;
+        $a=0;
+        }
+    
+    delete ($clusterhandle[0]);
+    select -cl;
+}
+
+selection_to_joint();
