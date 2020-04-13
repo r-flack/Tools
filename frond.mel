@@ -1,0 +1,328 @@
+/*------------------------------------------------------------
+Create UI Window
+-------------------------------------------------------------*/
+global proc frond()
+    {
+    //create window
+    
+    if (`window -ex frondWin`) deleteUI frondWin;
+    if (`windowPref -ex frondWin`) windowPref -remove frondWin;
+    window -title "Frond Tool" -widthHeight 400 200 -s off frondWin;
+    
+    //create column rows
+        
+        rowColumnLayout -bgc 0.3 0.3 0.3 -numberOfColumns 2
+        
+            -columnWidth 1 5
+            -columnWidth 2 400
+            ;
+    
+    //create text scroll list
+    separator -vis off -h 5;
+    //button -bgc 1.0 0.8 0.0 -l "Target Mesh" -w 70 -h 5 -align "Left" -command update_scene_meshes;
+    string $meshbuttontextfield = `textFieldButtonGrp -text "" -buttonLabel "Target Mesh" -buttonCommand update_scene_meshes meshbuttontextfield`;
+    separator -vis off -h 5;
+    //separator -vis off -h 5;
+    rowColumnLayout -bgc 0.3 0.3 0.3 -numberOfColumns 5
+    
+        -columnWidth 1 5
+        -columnWidth 2 230
+        -columnWidth 3  5
+        -columnWidth 4 75
+        -columnWidth 5 5
+        ;
+
+    //top line spacers
+
+    separator -vis off -h 5;
+    separator -vis off -h 5;
+    separator -vis off -h 5;
+    separator -vis off -h 5;
+    separator -vis off -h 5;
+        
+    //first line text & button;
+
+    separator -vis off -h 5;
+    text -al "left" -label "Place Joint at Centre Of Selection";
+    separator -vis off -h 5;
+    button -bgc 1.0 0.4 0.4 -l "Create Joint" -w 75 -command create_joint;
+    separator -vis off -h 5;
+    
+    //ssecond line spacers    
+        
+    separator -vis off -h 5;
+    separator -vis off -h 5;
+    separator -vis off -h 5;
+    separator -vis off -h 5;
+    separator -vis off -h 5;
+ 
+    //second line text & button;
+
+    separator -vis off -h 5;
+    text -al "left" -label "Create Spline Ik Joint";
+    separator -vis off -h 5;
+    button -bgc 1.0 0.4 0.4 -l "Create Ik" -w 75 -command create_spline_ik;
+    separator -vis off -h 5;    
+                  
+    showWindow frondWin;
+    
+    }
+    
+/*------------------------------------------------------------
+Compare current selection & create joint
+-------------------------------------------------------------*/
+proc create_joint()
+{
+//determine if selection is compnent or obect
+string $seltype = return_component_type();
+string $typeNames[] = {"Poylgon", "Control Vertex","Edit Point","Polygon Vertex","Polygon Edge","Polygon Face","Polygon UV","Polygon Vertex Face"};
+int $selval = `strcmp $typeNames[0] $seltype`;
+//assign selection to string
+string $sel[] = (`ls -sl -sn`);
+int $selsize = (size($sel));
+
+int $jntval;
+
+string $targetmesh = `textFieldButtonGrp -q -tx meshbuttontextfield`;
+string $jointname = ($targetmesh + "_bind_joint0" + ($jntval));
+if ($selsize == 0)
+    {
+        print ("\n Nothing is selected");
+    } 
+   
+if ($selval == 0)
+    {
+    //if selection is object - tell user to enter component mode       
+    print ("\nJoint not created. Enter Component Mode to create selection. Default hotkey F8");
+    }
+if ($selval > 0 && $selsize > 0)
+    {
+    //if selection is component - create joint aplace it with vector
+    float $centresel[] = (`polyEvaluate -bc ($sel)`);
+    //find centre point of selection
+    vector $centrepos =  <<$centresel[0] + $centresel[1], ((($centresel[3] - $centresel[2])/2) + $centresel[2]), $centresel[4] + $centresel[5]>>;
+    
+    //print ("\n This name: " + $jointname);
+    if (`objExists ($jointname)`)
+        {
+            select -hi ($targetmesh + "_bind_joint00");
+            string $jntrelatives[] = (`ls -sl`);
+            int $a = (size($jntrelatives));
+            select ($targetmesh + "_bind_joint0" + ($a-1));
+            joint -p ($centrepos.x) ($centrepos.y) ($centrepos.z) -rad 1 -n ($targetmesh + "_bind_joint0" + $a);
+            select ($sel); 
+
+        }
+        
+    else
+        {
+        $jntval = 0;
+        $jointname = ($targetmesh + "_bind_joint0" + ($jntval));
+        joint -p ($centrepos.x) ($centrepos.y) ($centrepos.z) -rad 1 -n  ($jointname);
+        parent -w ($jointname);        
+        }
+    }
+
+}
+
+/*------------------------------------------------------------
+Query if a polygon or component(s) is selected
+-------------------------------------------------------------*/   
+proc string return_component_type()
+{
+string $componentsel[] = (`ls -sl`);
+// lists with types and returned name
+int $filtertype[] = {12 , 28 , 30 , 31 , 32 , 34 , 35 , 70 };
+int $filternumber = (size($filtertype));
+string $typeNames[] = {"Poylgon", "Control Vertex","Edit Point","Polygon Vertex","Polygon Edge","Polygon Face","Polygon UV","Polygon Vertex Face"};
+string $seltype;
+for ($i=0; $i<$filternumber; $i++)
+    {
+	if (size(`filterExpand -sm $filtertype[$i] $componentsel`))
+		{
+	    print ("\nCurrent selection: " + ($typeNames[$i]));
+        $seltype = ($typeNames[$i]);
+        break;
+        }
+    }
+return ($seltype);
+}
+
+
+proc update_scene_meshes()
+{
+string $meshlist[] = (`ls -sl`);
+int $meshlistsize = (size(`ls -sl`));
+
+    if ($meshlistsize == 0)
+        {
+            print ("\nNothing is selected");
+            string $meshbuttontextfield = `textFieldButtonGrp -e -text "" -buttonLabel "Target Mesh" -buttonCommand update_scene_meshes meshbuttontextfield`;
+        }
+ 
+    if ($meshlistsize == 1)
+        {
+            int $i;
+            for ($i=0;$i<($meshlistsize);$i++)
+                {
+                string $meshlist[] = (`ls -sl`);
+                print ("\nObject: " + ($meshlist[0]) + " is target mesh");
+                string $meshbuttontextfield = `textFieldButtonGrp -e -text $meshlist[0] -buttonLabel "Target Mesh" -buttonCommand update_scene_meshes meshbuttontextfield`;
+                print ("\nTarget mesh has been updated.\n");
+                }
+
+       }
+
+}
+/*------------------------------------------------------------
+Create duplicate ik joint chain & spline ik 
+-------------------------------------------------------------*/
+proc create_spline_ik()
+{
+//get unique mesh name
+string $targetmesh = `textFieldButtonGrp -q -tx meshbuttontextfield`;
+//orient joints
+select -r ($targetmesh + "_bind_joint00");
+joint -e  -oj xyz -secondaryAxisOrient yup -ch;
+
+//create duplicate spline ik chain
+select -hi ($targetmesh + "_bind_joint00");
+string $jntrelatives[] = (`ls -sl`);
+int $a = (size($jntrelatives));
+
+for ($i=0;$i<$a;$i++)
+{
+
+float $jntpos[] = (`xform -q -ws -t ($jntrelatives[$i])`);
+    if (`objExists ($targetmesh + "_spline_ik_joint00")`)
+        {
+        select ($targetmesh + "_spline_ik_joint0" + ($i-1));
+        joint -p ($jntpos[0]) ($jntpos[1]) ($jntpos[2]) -rad 1 -n ($targetmesh + "_spline_ik_joint0" + ($i));
+        }
+else
+        {
+        select -r ($jntrelatives[$i]);
+        joint -p ($jntpos[0]) ($jntpos[1]) ($jntpos[2]) -rad 1 -n ($targetmesh + "_spline_ik_joint0" + ($i));
+        parent -w;           
+        }
+}
+
+//create unique curve name
+if (`objExists ($targetmesh + "_spline_ik_crv00")`)
+    {
+    int $crvsize = (`select -r ("spline_ik_crv*")`);
+    float $jntxyz[] = (`xform -q -ws -t ($jntrelatives[0])`);
+    curve -p ($jntxyz[0]) ($jntxyz[1]) ($jntxyz[2]) -n ($targetmesh + "_spline_ik_crv0" + ($crvsize));
+    //add points per joint
+    for ($i=1;$i<$a;$i++)
+        {
+        float $jntxyz[] = (`xform -q -ws -t ($jntrelatives[$i])`);
+         curve -a -p ($jntxyz[0]) ($jntxyz[1]) ($jntxyz[2]) ($targetmesh + "_spline_ik_crv0" + ($crvsize));
+        }  
+    }
+else
+    {
+    float $jntxyz[] = (`xform -q -ws -t ($jntrelatives[0])`);
+    curve -p ($jntxyz[0]) ($jntxyz[1]) ($jntxyz[2]) -n ($targetmesh + "_spline_ik_crv00");
+    //add points per joint
+    for ($i=1;$i<$a;$i++)
+        {
+        float $jntxyz[] = (`xform -q -ws -t ($jntrelatives[$i])`);
+         curve -a -p ($jntxyz[0]) ($jntxyz[1]) ($jntxyz[2]) ($targetmesh + "_spline_ik_crv00");
+        }     
+    }
+//select latest curve & rename shape
+string $curvesel[] = (`ls -sl`);
+string  $curveselshape[] = (`listRelatives -c -s ($curvesel[0])`);
+string $curveshape = (`rename ($curveselshape[0]) ($curvesel[0] + "Shape")`);
+
+select -cl  ;
+select -r ($targetmesh + "_spline_ik_joint00");
+select -add (($targetmesh + "_spline_ik_joint0") + ($a-1));
+select -add ($curvesel[0]);
+ikHandle -sol ikSplineSolver -ccv false -pcv false -n ($targetmesh + "_spline_ik_Handle00" );
+
+/*------------------------------------------------------------
+Create controls for ik chain
+-------------------------------------------------------------*/
+//get number of joints to attach controls to
+select -hi ($targetmesh + "_spline_ik_joint00");
+string $ikrelatives[] = (`ls -sl`);
+int $ikint = (size($ikrelatives));
+//get values of the target mesh based on bounding box
+float $bbtargetmesh[] = (`polyEvaluate -b ($targetmesh)`);
+
+//width
+float $bbwidth = ($bbtargetmesh[1]*1);
+
+//create control group
+group -em -n ($targetmesh + "_controls");
+matchTransform -piv -pos -rot ($targetmesh + "_controls") ($targetmesh + "_spline_ik_joint00");
+
+for ($i=0;$i<($ikint-1);$i++)
+    {
+    //create individual controls
+    curve -d 1 -p 0 0 ($bbtargetmesh[1]) 
+               -p 0 0 ($bbtargetmesh[1]*-1) 
+               -p 0 0 0 
+               -p 0 ($bbtargetmesh[1]) 0 
+               -p 0 ($bbtargetmesh[1]*-1) 0 
+               -p 0 0 0 
+               -p ($bbtargetmesh[1]*-1) 0 0 
+               -p ($bbtargetmesh[1]) 0 0 
+               -k 0 -k 1 -k 2 -k 3 -k 4 -k 5 -k 6 -k 7 -n ($targetmesh + "_spline_ik_ctrl0" + ($i));
+
+    //set attribute colour           
+    setAttr ($targetmesh + "_spline_ik_ctrl0" + ($i) + ".overrideEnabled") 1;
+    setAttr ($targetmesh + "_spline_ik_ctrl0" + ($i) + ".overrideColor") 18;
+    //group controls             
+    group -em -n ("grp_" + $targetmesh + "_spline_ik_ctrl0" + ($i));
+    parent ($targetmesh + "_spline_ik_ctrl0" + ($i)) ("grp_" + $targetmesh + "_spline_ik_ctrl0" + ($i));
+    //match control groups to joint positions
+    matchTransform -piv -pos -rot ("grp_" + $targetmesh + "_spline_ik_ctrl0" + ($i)) ($ikrelatives[$i]);
+    parent ("grp_" + $targetmesh + "_spline_ik_ctrl0" + ($i)) ($targetmesh + "_controls");
+    }
+
+curve -d 1 -p ($bbtargetmesh[1]) ($bbtargetmesh[1]*-1) ($bbtargetmesh[1]) 
+           -p ($bbtargetmesh[1]*-1) ($bbtargetmesh[1]*-1) ($bbtargetmesh[1]) 
+           -p ($bbtargetmesh[1]*-1) ($bbtargetmesh[1]*-1) ($bbtargetmesh[1]*-1) 
+           -p ($bbtargetmesh[1]) ($bbtargetmesh[1]*-1) ($bbtargetmesh[1]*-1) 
+           -p ($bbtargetmesh[1]) ($bbtargetmesh[1]*-1) ($bbtargetmesh[1]) 
+           -p ($bbtargetmesh[1]) ($bbtargetmesh[1]) ($bbtargetmesh[1])
+           -p ($bbtargetmesh[1]) ($bbtargetmesh[1]) ($bbtargetmesh[1]*-1) 
+           -p ($bbtargetmesh[1]) ($bbtargetmesh[1]*-1) ($bbtargetmesh[1]*-1) 
+           -p ($bbtargetmesh[1]) ($bbtargetmesh[1]) ($bbtargetmesh[1]*-1) 
+           -p ($bbtargetmesh[1]*-1) ($bbtargetmesh[1]) ($bbtargetmesh[1]*-1) 
+           -p ($bbtargetmesh[1]*-1) ($bbtargetmesh[1]*-1) ($bbtargetmesh[1]*-1) 
+           -p ($bbtargetmesh[1]*-1) ($bbtargetmesh[1]) ($bbtargetmesh[1]*-1) 
+           -p ($bbtargetmesh[1]*-1) ($bbtargetmesh[1]) ($bbtargetmesh[1]) 
+           -p ($bbtargetmesh[1]*-1) ($bbtargetmesh[1]*-1) ($bbtargetmesh[1]) 
+           -p ($bbtargetmesh[1]*-1) ($bbtargetmesh[1]) ($bbtargetmesh[1]) 
+           -p ($bbtargetmesh[1]) ($bbtargetmesh[1]) ($bbtargetmesh[1]) 
+           -p ($bbtargetmesh[1]) ($bbtargetmesh[1]*-1) ($bbtargetmesh[1]) 
+           -k 0 -k 1 -k 2 -k 3 -k 4 -k 5 -k 6 -k 7 -k 8 -k 9 -k 10 -k 11 -k 12 -k 13 -k 14 -k 15 -k 16 -n ($targetmesh + "_spline_ik_end_ctrl");
+
+    //set attribute colour           
+    setAttr ($targetmesh + "_spline_ik_end_ctrl" + ".overrideEnabled") 1;
+    setAttr ($targetmesh + "_spline_ik_end_ctrl" + ".overrideColor") 18;
+    
+    group -em -n ("grp_" + $targetmesh + "_spline_ik_end_ctrl");
+    parent ($targetmesh + "_spline_ik_end_ctrl") ("grp_" + $targetmesh + "_spline_ik_end_ctrl");
+    parent ("grp_" + $targetmesh + "_spline_ik_end_ctrl") ($targetmesh + "_controls");
+    matchTransform -piv -pos -rot ("grp_" + $targetmesh + "_spline_ik_end_ctrl") ($ikrelatives[$ikint-1]);
+    select -cl; 
+    
+/*------------------------------------------------------------
+connect each control to ik spline curve with decompose matrix
+-------------------------------------------------------------*/
+for ($i=0;$i<($ikint-1);$i++)
+    {
+    //create shading node
+    shadingNode -asUtility decomposeMatrix -n ($targetmesh + "_spline_ik_ctrl0" + ($i) + "decomp_matrix");
+    //link ik control world matrix to decompose matrix
+    connectAttr -force ($targetmesh + "_spline_ik_ctrl0" + ($i) + ".worldMatrix[0]") ($targetmesh + "_spline_ik_ctrl0" + ($i) + "decomp_matrix" + ".inputMatrix");
+    //link decompose output translate to spline ik curve point
+    connectAttr -f ($targetmesh + "_spline_ik_ctrl0" + ($i) + "decomp_matrix" + ".outputTranslate") ($curveshape + ".controlPoints[" + ($i) + "]");
+    }       
+}
+

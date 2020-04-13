@@ -1,0 +1,40 @@
+//create 3 fk controls
+
+for ($i=0;$i<=3;$i++)
+    {
+    circle -c 0 0 0 -nr 0 1 0 -sw 360 -r 80 -d 3 -ut 0 -tol 0.0001 -s 8 -ch 1 -n ($ID + $sideBias[1] + "fk_ctrl0" + ($i));
+    group  -n ("grp_" + $ID + $sideBias[1] + "fk_ctrl0" + ($i));
+    select -r ($ID + $sideBias[1] + "fk_ctrl0" + ($i) + ".cv[0:7]") ;
+    rotate -r -ocp -os -fo 0 0 90 ;
+    select -cl;
+    setAttr ($ID + $sideBias[1] + "fk_ctrl0" + ($i) + ".overrideEnabled") 1;
+    setAttr ($ID + $sideBias[1] + "fk_ctrl0" + ($i) + ".overrideColor") 18;
+    }
+    
+//place them along the joint chain
+int $b = ($chainsize / 3)
+
+//order the controls into hierarchy
+for ($i=0;$i<=$b;$i++)
+    {
+       matchTransform -pos (("grp_" + $ID + $sideBias[0] + "fk_ctrl0" + ($i))) (($ID + $sideBias[0] + "bind0" + ($b)););        
+    }
+
+
+//create locator at last joint (this group node will be the last in hierachy of joint chain)
+
+
+
+//create reverse node
+shadingNode -asUtility reverse -n (($ID) + ($sideBias[1]) + "spaceSwitch_reverse2");
+//connect switch control to reverse 
+connectAttr -f tentacle04_r_ik_end_ctrl.World_fk tentacle04_r_spaceSwitch_reverse2.inputX;
+//connect reverse to space switch
+connectAttr -f tentacle04_r_spaceSwitch_reverse2.outputX tentacle04_r_spaceswitch_loc_parentConstraint1.clavicle_r_ctrlW1;
+//connect switch control to clavicle prnt constraint
+connectAttr -f tentacle04_r_ik_end_ctrl.World_fk grp_tentacle04_r_fk_ctrl00_parentConstraint1.clavicle_r_ctrlW0;
+//connect switch control to spaceswitch fl tentacle prnt constraint
+connectAttr -f tentacle04_r_ik_end_ctrl.World_fk tentacle04_r_spaceswitch_loc_parentConstraint1.tentacle04_r_fk_ctrl03W0;
+//connect switch control to ik prnt constraint
+connectAttr -f tentacle04_r_ik_end_ctrl.World_fk grp_tentacle04_r_ik_end_ctrl_parentConstraint1.tentacle04_r_spaceswitch_locW0;
+

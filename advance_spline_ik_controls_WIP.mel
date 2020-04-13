@@ -1,0 +1,161 @@
+/*------------------------------------------------------------
+Assign tentacle control joints to string
+-------------------------------------------------------------*/
+//now select all IK controls to create joints at their positions
+//INCLUDE end_ctrl
+
+string $ID = "tentacle01";
+
+string $sideBias[] = {"_l_", "_r_"};
+
+string $ikctrlsel[] = (`ls -sl`);
+
+int $chainsize = (size($ikctrlsel));
+
+string $curveName = (($ID) + ($sideBias[1]) + "CRV_scaleValue");
+$selCRV = (`ls -sl`);
+
+rename ($selCRV) ($curveName);
+
+/*------------------------------------------------------------
+create group node for rig locs
+-------------------------------------------------------------*/
+
+group -em -n ("grp_" + ($ID) + ($sideBias[1]) + "CRV_scaleValue_loc");
+parent -w ("grp_" + ($ID) + ($sideBias[1]) + "CRV_scaleValue_loc");    
+
+    
+/*------------------------------------------------------------
+create locators
+-------------------------------------------------------------*/
+
+//create locators along control positions
+
+for ($i=0;$i<($chainsize);$i++)
+    {
+    //create joints & parent to relevant groups:
+    float $ctrlPos[] = (`getAttr ("grp_" + $ikctrlsel[$i] + ".worldMatrix")`);
+    print ("\n" + ($ctrlPos[12]) + ($ctrlPos[13]) + ($ctrlPos[14]));
+    select -cl;
+    spaceLocator -n (($ID) + ($sideBias[1]) + "CRV_scaleValue_loc0" + ($i)) -a -p 0 0 0;
+    
+    xform -ws -t ($ctrlPos[12]) ($ctrlPos[13]) ($ctrlPos[14]) (($ID) + ($sideBias[1]) + "CRV_scaleValue_loc0" + ($i));
+    parent (($ID) + ($sideBias[1]) + "CRV_scaleValue_loc0" + ($i)) ("grp_" + ($ID) + ($sideBias[1]) + "CRV_scaleValue_loc");
+    }
+
+/*------------------------------------------------------------
+assign point on curve node for locators
+-------------------------------------------------------------*/
+//constrain locators to cv points
+$CP = (($ID) + ($sideBias[1]) + "CRV_scaleValueShape");
+$pointCrvInfo = "pointOnCurveInfo";
+
+select -r ("grp_" + ($ID) + ($sideBias[1]) + "CRV_scaleValue_loc");
+string $selShape[] = select(`listRelatives -c`);
+string $locsel[] = (`ls -sl`);
+int $p = size($locsel) -1;
+for ($i=0;$i<=$p;$i++)
+    {       
+    //string $obj = ($selShape[$i]);
+    $obj = ($locsel[$i]);
+    
+    shadingNode -asUtility pointOnCurveInfo -n (($ID) + ($sideBias[1]) + $pointCrvInfo + ($i));
+    connectAttr -f ($CP + ".worldSpace") (($ID) + ($sideBias[1]) + $pointCrvInfo + $i + ".inputCurve");
+    connectAttr -f (($ID) + ($sideBias[1]) + $pointCrvInfo + $i + ".position") ($obj + ".translate");
+    setAttr (($ID) + ($sideBias[1]) + $pointCrvInfo + $i + ".parameter") $i;
+    }
+
+
+/*------------------------------------------------------------
+Create Curve / Arclen / mulDiv node to return length
+-------------------------------------------------------------*/
+
+    //duplicate existing ik spline:
+    select -r (($ID) + ($sideBias[1]) + "CRV_scaleValue"); //needs to be made from EP curve tool, getting co-ordinates from joints
+    
+    //apply arclen& rename attr:
+    arclen -ch on (($ID) + ($sideBias[1]) + "CRV_scaleValue");        
+    rename curveInfo5 (($ID) + ($sideBias[1]) + "CRV_scaleValue_curveinfo");
+      
+    //create mulDiv node for arclen & connect to input1
+    shadingNode -asUtility multiplyDivide -n (($ID) + ($sideBias[1]) + "CRV_scaleValue_curveinfo_mulDiv");
+    connectAttr -f (($ID) + ($sideBias[1]) + "CRV_scaleValue_curveinfo.arcLength") (($ID) + ($sideBias[1]) + "CRV_scaleValue_curveinfo_mulDiv.input1.input1X");
+    
+    //set mulDiv node to divide
+    setAttr (($ID) + ($sideBias[1]) + "CRV_scaleValue_curveinfo_mulDiv.operation") 2;
+    
+    //get arclen value & assign to mulDiv input 2:
+    float $arclenVal = (`getAttr(($ID) + ($sideBias[1]) + "CRV_scaleValue_curveinfo.arcLength")`);
+    setAttr (($ID) + ($sideBias[1]) + "CRV_scaleValue_curveinfo_mulDiv.input2X") ($arclenVal);
+
+
+/*------------------------------------------------------------
+create rig bind joints at first and last position of curve CVs
+-------------------------------------------------------------*/
+
+float $ctrlPosStart[] = (`getAttr ("grp_" + $ikctrlsel[0] + ".worldMatrix")`);
+select -cl;
+joint -n (($ID) + ($sideBias[1]) + "CRV_scaleValue_bind0" + (0)) -rad 8 -p ($ctrlPosStart[12]) ($ctrlPosStart[13]) ($ctrlPosStart[14]);
+
+float $ctrlPosEnd[] = (`getAttr ("grp_" + $ikctrlsel[$chainsize -1] + ".worldMatrix")`);
+select -cl;
+joint -n (($ID) + ($sideBias[1]) + "CRV_scaleValue_bind0" + (1)) -rad 8 -p ($ctrlPosEnd[12]) ($ctrlPosEnd[13]) ($ctrlPosEnd[14]);
+
+//smoothbind scale joints to scale CRV
+select -add (($ID) + ($sideBias[1]) + "CRV_scaleValue_bind0" + (0)) (($ID) + ($sideBias[1]) + "CRV_scaleValue_bind0" + (1)) (($ID) + ($sideBias[1]) + "CRV_scaleValue");
+SmoothBindSkin;
+select -cl;
+
+parent (($ID) + ($sideBias[1]) + "CRV_scaleValue_bind0" + (0)) ("grp_" + ($ID) + ($sideBias[1]) + "ik_end_ctrl");
+parent (($ID) + ($sideBias[1]) + "CRV_scaleValue_bind0" + (1)) (($ID) + ($sideBias[1]) + "ik_end_ctrl"); 
+
+
+/*------------------------------------------------------------
+Smooth out weights on tentacle01_l_CRV_scaleValue
+-------------------------------------------------------------*/
+//smoothing out weights here:
+select -r ($curveName);
+//skinCluster -q -n ; ($curveName);<<<Return name of skin cluster
+// Curve Degree
+float $deg = eval("getAttr " + $curveName + ".degree");
+// Curve Spans
+float $span = eval("getAttr " + $curveName + ".spans");
+
+//	output the cv count
+float $numCV = $span + $deg;
+
+print ("numCVs = "+$numCV+"\n");
+
+for ($i=0;$i<($numCV);$i++)
+    {
+    float $inf = 1;
+    float $divFac = ($inf/$numCV);
+    float $skinVal = ($divFac * $i);
+    print ("\n" + $skinVal);
+    
+        if ($skinVal<= $inf)
+            {
+            skinPercent -tv (($ID) + ($sideBias[1]) + "CRV_scaleValue_bind01") ($skinVal) ("skinCluster6") (($ID) + ($sideBias[1]) + "CRV_scaleValue.cv[" + ($i) + "]");               
+            }
+    } 
+
+select -cl;
+
+/*------------------------------------------------------------
+Connect control groups to locators
+-------------------------------------------------------------*/
+
+string $multMtrx = ("_multiMatrix0" + $sideBias[1]);
+string $decompMtrx = ("_decompMatrix0" + $sideBias[1]);
+
+for ($i=0;$i<$p;$i++)
+    {
+    shadingNode -asUtility multMatrix -n (($ID) + ($multMtrx) + ($i));    
+    shadingNode -asUtility decomposeMatrix -n (($ID) + ($decompMtrx) + ($i));
+    
+    connectAttr -force ($locsel[$i] + ".worldMatrix[0]") (($ID) + ($multMtrx) + ($i) + ".matrixIn[0]");
+    connectAttr -force (($ID) + ($sideBias[1]) + "CRV_scaleValue_bind00.worldInverseMatrix[0]") (($ID) + ($multMtrx) + ($i) + ".matrixIn[1]");
+
+    connectAttr -force (($ID) + ($multMtrx) + ($i) + ".matrixSum") (($ID) + ($decompMtrx) + ($i) + ".inputMatrix");
+    connectAttr -force (($ID) + ($decompMtrx) + ($i) + ".outputTranslate") ("grp_" + ($ID) + ($sideBias[1]) + "ctrl0" + ($i) + ".translate");
+    }
